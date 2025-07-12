@@ -1,5 +1,6 @@
 import express from 'express';
 import * as dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -13,8 +14,26 @@ app.post('/invoice', async (req, res) => {
   try {
     console.log('📄 請求書データを受信:', req.body);
     
-    // ここに実際の処理を追加
-    // 例: データベースへの保存、他のサービスへの転送など
+    // GASに転送
+    if (process.env.GAS_WEBHOOK_URL) {
+      console.log('🔄 GASに転送中:', process.env.GAS_WEBHOOK_URL);
+      
+      const gasResponse = await fetch(process.env.GAS_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      });
+      
+      console.log('📡 GASレスポンス status:', gasResponse.status);
+      
+      if (gasResponse.ok) {
+        console.log('✅ GAS転送成功');
+      } else {
+        console.error('❌ GAS転送失敗:', gasResponse.status);
+      }
+    } else {
+      console.log('⚠️ GAS_WEBHOOK_URL が設定されていません');
+    }
     
     res.status(200).json({ 
       success: true, 
