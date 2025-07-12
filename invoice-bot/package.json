@@ -4,6 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "ts-node src/index.ts",
+    "webhook": "ts-node src/webhook.ts",
+    "register": "ts-node src/register-commands.ts",
+    "dev": "ts-node src/index.ts",
+    "dev:webhook": "ts-node src/webhook.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,9 +18,11 @@
   "dependencies": {
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.0",
+    "express": "^5.1.0",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "@types/node": "^24.0.13",
     "@types/node-fetch": "^2.6.12",
     "ts-node": "^10.9.2",

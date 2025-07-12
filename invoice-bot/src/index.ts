@@ -49,7 +49,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // 最初のモーダル送信時の処理
   if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'invoice-modal-1') {
     const sessionId = `${interaction.user.id}-${Date.now()}`;
-    
+
     // 一時的にデータを保存
     const tempData = {
       請求日: interaction.fields.getTextInputValue('date'),
@@ -58,7 +58,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       住所担当者名: interaction.fields.getTextInputValue('address'),
       入金締切日: interaction.fields.getTextInputValue('due'),
     };
-    
+
     tempStorage.set(sessionId, tempData);
 
     // 2つ目のフォームに進むボタンを表示
@@ -85,7 +85,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // 続行ボタンが押された時の処理
   if (interaction.isButton() && interaction.customId.startsWith('continue-')) {
     const sessionId = interaction.customId.split('continue-')[1];
-    
+
     const modal2 = new ModalBuilder()
       .setCustomId(`invoice-modal-2-${sessionId}`)
       .setTitle('請求書入力フォーム (2/2)');
@@ -117,7 +117,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('invoice-modal-2-')) {
     const sessionId = interaction.customId.split('invoice-modal-2-')[1];
     const tempData = tempStorage.get(sessionId);
-    
+
     if (!tempData) {
       await interaction.reply({ content: '❌ セッションが期限切れです。最初からやり直してください。', ephemeral: true });
       return;
@@ -137,12 +137,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     tempStorage.delete(sessionId);
 
     try {
-      // Cloud Functions のエンドポイントにPOST（仮URL）
-      const response = await fetch('https://your-cloud-functions-url', {
+      // エンドポイント
+      const response = await fetch(process.env.WEBHOOK_URL!, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
+
 
       if (response.ok) {
         const finalEmbed = new EmbedBuilder()
