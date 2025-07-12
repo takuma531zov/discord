@@ -12,10 +12,12 @@
   "packageManager": "pnpm@10.11.1",
   "dependencies": {
     "discord.js": "^14.21.0",
-    "dotenv": "^17.2.0"
+    "dotenv": "^17.2.0",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.13",
+    "@types/node-fetch": "^2.6.12",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
