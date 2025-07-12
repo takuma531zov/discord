@@ -51,16 +51,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // 最初のモーダル送信時の処理
   if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'invoice-modal-1') {
     const sessionId = `${interaction.user.id}-${Date.now()}`;
-    //バリデーションチェックを追加　/^\d{4}-\d{2}-\d{2}$/
-    // const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    // if (!datePattern.test(interaction.fields.getTextInputValue('date'))) {
-    //   await interaction.reply({ content: '❌ 請求日が不正です。正しい形式で入力してください。正しい形式： yyyy-mm-dd', ephemeral: true });
-    //   return;
-    // }
-    // if (!datePattern.test(interaction.fields.getTextInputValue('due'))) {
-    //   await interaction.reply({ content: '❌ 入金締切日が不正です。正しい形式で入力してください。正しい形式： yyyy-mm-dd', ephemeral: true });
-    //   return;
-    // }
+
     // 一時的にデータを保存
     const tempData = {
       請求日: interaction.fields.getTextInputValue('date'),
@@ -90,7 +81,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .setColor(0x00ff00);
 
     const replyMessage = await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-    
+
     // メッセージIDを保存（削除用）
     messageStorage.set(sessionId, replyMessage);
   }

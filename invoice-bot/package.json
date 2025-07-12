@@ -7,8 +7,6 @@
     "start": "ts-node src/index.ts",
     "webhook": "ts-node src/webhook.ts",
     "register": "ts-node src/register-commands.ts",
-    "dev": "ts-node src/index.ts",
-    "dev:webhook": "ts-node src/webhook.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
