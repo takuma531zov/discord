@@ -137,13 +137,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     tempStorage.delete(sessionId);
 
     try {
-      // エンドポイント
+      console.log('📤 Webhookに送信中:', process.env.WEBHOOK_URL);
+      console.log('📄 送信データ:', data);
+      
       const response = await fetch(process.env.WEBHOOK_URL!, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
 
+      console.log('📡 レスポンス status:', response.status);
+      const responseText = await response.text();
+      console.log('📡 レスポンス body:', responseText);
 
       if (response.ok) {
         const finalEmbed = new EmbedBuilder()
@@ -159,11 +164,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         await interaction.reply({ embeds: [finalEmbed], ephemeral: true });
       } else {
-        await interaction.reply({ content: '⚠️ 登録に失敗しました。', ephemeral: true });
+        console.error('❌ Webhook失敗:', response.status, responseText);
+        await interaction.reply({ content: `⚠️ 登録に失敗しました。(Status: ${response.status})`, ephemeral: true });
       }
     } catch (err) {
-      console.error('送信エラー:', err);
-      await interaction.reply({ content: '❌ エラーが発生しました。', ephemeral: true });
+      console.error('❌ 送信エラー詳細:', err);
+      await interaction.reply({ content: `❌ エラーが発生しました: ${err instanceof Error ? err.message : String(err)}`, ephemeral: true });
     }
   }
 });
