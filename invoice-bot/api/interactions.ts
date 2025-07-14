@@ -1,4 +1,4 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+// import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sign } from 'tweetnacl';
 import {
   InteractionType,
@@ -28,22 +28,22 @@ function verifyDiscordSignature(publicKey: string, signature: string, timestamp:
 }
 
 // Raw bodyを読み込むヘルパー関数
-async function getRawBody(req: VercelRequest): Promise<string> {
+async function getRawBody(req: any): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => {
+    req.on('data', (chunk: any) => {
       body += chunk.toString();
     });
     req.on('end', () => {
       resolve(body);
     });
-    req.on('error', (error) => {
+    req.on('error', (error: any) => {
       reject(error);
     });
   });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
