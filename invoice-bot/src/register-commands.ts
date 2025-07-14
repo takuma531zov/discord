@@ -7,7 +7,7 @@ dotenv.config();
 const commands = [
   new SlashCommandBuilder()
     .setName('invoice')
-    .setDescription('請求書情報を入力するフォームを表示します')
+    .setDescription('請求書情報を入力します')
     .toJSON(),
 ];
 
