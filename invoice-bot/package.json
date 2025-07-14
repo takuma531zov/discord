@@ -19,6 +19,7 @@
     "@discord-interactions/api": "^0.3.21",
     "@discord-interactions/core": "^0.3.23",
     "@discord-interactions/verify": "^0.3.16",
+    "@vercel/node": "^3.0.0",
     "discord-api-types": "^0.38.15",
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.0",
@@ -30,7 +31,6 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.13",
     "@types/node-fetch": "^2.6.12",
-    "@vercel/node": "^3.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
