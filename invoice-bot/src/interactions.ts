@@ -1,4 +1,3 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sign } from 'tweetnacl';
 import {
   InteractionType,
@@ -6,13 +5,6 @@ import {
   ComponentType,
   TextInputStyle
 } from 'discord-api-types/v10';
-
-// Vercel用の設定 - raw body を取得するためにbodyParserを無効化
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
 
 // Discord signature verification
 function verifyDiscordSignature(publicKey: string, signature: string, timestamp: string, body: string): boolean {
@@ -27,49 +19,26 @@ function verifyDiscordSignature(publicKey: string, signature: string, timestamp:
   }
 }
 
-// Raw bodyを読み込むヘルパー関数
-async function getRawBody(req: VercelRequest): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      resolve(body);
-    });
-    req.on('error', (error) => {
-      reject(error);
-    });
-  });
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Raw bodyを取得
-  const body = await getRawBody(req);
-
-  const signature = req.headers['x-signature-ed25519'] as string;
-  const timestamp = req.headers['x-signature-timestamp'] as string;
+  const body = req.body;
+  const signature = req.headers['x-signature-ed25519'];
+  const timestamp = req.headers['x-signature-timestamp'];
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
-  console.log('署名検証:', { signature, timestamp, bodyLength: body.length, publicKey: publicKey?.substring(0, 10) + '...' });
+  console.log('署名検証:', { signature, timestamp, bodyLength: body?.length, publicKey: publicKey?.substring(0, 10) + '...' });
 
   // ✅ 実際に署名検証を行う（ここがDiscord登録時に必須）
-  if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, body)) {
+  if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, JSON.stringify(body))) {
     console.warn('❌ 署名検証失敗');
     return res.status(401).json({ error: 'Invalid request signature' });
   }
 
-  let interaction;
-  try {
-    interaction = JSON.parse(body);
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON' });
-  }
+  const interaction = body;
 
   // ✅ PING応答（Discordによる接続テスト）
   if (interaction.type === InteractionType.Ping) {
