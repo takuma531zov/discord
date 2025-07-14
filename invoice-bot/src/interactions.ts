@@ -1,4 +1,4 @@
-import { sign } from 'tweetnacl';
+import { verifyKey } from '@discord-interactions/verify';
 import {
   InteractionType,
   InteractionResponseType,
@@ -6,39 +6,27 @@ import {
   TextInputStyle
 } from 'discord-api-types/v10';
 
-// Discord signature verification
-function verifyDiscordSignature(publicKey: string, signature: string, timestamp: string, body: string): boolean {
-  try {
-    const message = new TextEncoder().encode(timestamp + body);
-    const sig = Buffer.from(signature, 'hex');
-    const key = Buffer.from(publicKey, 'hex');
-    return sign.detached.verify(message, sig, key);
-  } catch (err) {
-    console.error('署名検証エラー:', err);
-    return false;
-  }
-}
-
 export default async function handler(req: any, res: any) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = req.body;
   const signature = req.headers['x-signature-ed25519'];
   const timestamp = req.headers['x-signature-timestamp'];
+  const rawBody = JSON.stringify(req.body);
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
-  console.log('署名検証:', { signature, timestamp, bodyLength: body?.length, publicKey: publicKey?.substring(0, 10) + '...' });
+  console.log('署名検証:', { signature, timestamp, bodyLength: rawBody.length, publicKey: publicKey?.substring(0, 10) + '...' });
 
-  // ✅ 実際に署名検証を行う（ここがDiscord登録時に必須）
-  if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, JSON.stringify(body))) {
+  // Discord署名検証
+  const isValidRequest = verifyKey(rawBody, signature, timestamp, publicKey);
+  if (!isValidRequest) {
     console.warn('❌ 署名検証失敗');
     return res.status(401).json({ error: 'Invalid request signature' });
   }
 
-  const interaction = body;
+  const interaction = req.body;
 
   // ✅ PING応答（Discordによる接続テスト）
   if (interaction.type === InteractionType.Ping) {
