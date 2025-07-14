@@ -60,13 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
   console.log('署名検証:', { signature, timestamp, bodyLength: body.length, publicKey: publicKey?.substring(0, 10) + '...' });
-
-  // ✅ 実際に署名検証を行う（ここがDiscord登録時に必須）
-  // 一時的にテスト用に署名検証を無効化
-  // if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, body)) {
-  //   console.warn('❌ 署名検証失敗');
-  //   return res.status(401).json({ error: 'Invalid request signature' });
-  // }
+  console.log('テストモード: 署名検証をスキップ');
 
   let interaction;
   try {
