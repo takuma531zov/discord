@@ -1,11 +1,11 @@
-import {
+const {
   InteractionType,
   InteractionResponseType,
   ComponentType,
   TextInputStyle
-} from 'discord-api-types/v10';
+} = require('discord-api-types/v10');
 
-export default async function handler(req: any, res: any) {
+module.exports = async function handler(req, res) {
   console.log('🚀 関数が呼び出されました:', req.method);
   
   // Only allow POST requests
