@@ -1,4 +1,4 @@
-const { verifyKey } = require('@discord-interactions/verify');
+import { sign } from 'tweetnacl';
 import {
   InteractionType,
   InteractionResponseType,
@@ -19,9 +19,21 @@ export default async function handler(req: any, res: any) {
 
   console.log('署名検証:', { signature, timestamp, bodyLength: rawBody.length, publicKey: publicKey?.substring(0, 10) + '...' });
 
+  // Discord signature verification
+  function verifyDiscordSignature(publicKey: string, signature: string, timestamp: string, body: string): boolean {
+    try {
+      const message = new TextEncoder().encode(timestamp + body);
+      const sig = Buffer.from(signature, 'hex');
+      const key = Buffer.from(publicKey, 'hex');
+      return sign.detached.verify(message, sig, key);
+    } catch (err) {
+      console.error('署名検証エラー:', err);
+      return false;
+    }
+  }
+
   // Discord署名検証
-  const isValidRequest = verifyKey(rawBody, signature, timestamp, publicKey);
-  if (!isValidRequest) {
+  if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, rawBody)) {
     console.warn('❌ 署名検証失敗');
     return res.status(401).json({ error: 'Invalid request signature' });
   }
