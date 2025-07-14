@@ -1,4 +1,3 @@
-import { sign } from 'tweetnacl';
 import {
   InteractionType,
   InteractionResponseType,
@@ -6,78 +5,28 @@ import {
   TextInputStyle
 } from 'discord-api-types/v10';
 
-// Vercel用の設定 - raw body を取得するためにbodyParserを無効化
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
-
-// Raw bodyを読み込むヘルパー関数
-async function getRawBody(req: any): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk: any) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      resolve(body);
-    });
-    req.on('error', (error: any) => {
-      reject(error);
-    });
-  });
-}
-
 export default async function handler(req: any, res: any) {
+  console.log('🚀 関数が呼び出されました:', req.method);
+  
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Raw bodyを取得
-  const rawBody = await getRawBody(req);
-  const signature = req.headers['x-signature-ed25519'];
-  const timestamp = req.headers['x-signature-timestamp'];
-  const publicKey = process.env.DISCORD_PUBLIC_KEY!;
-
-  console.log('署名検証:', { signature, timestamp, bodyLength: rawBody.length, publicKey: publicKey?.substring(0, 10) + '...' });
-
-  // Discord signature verification
-  function verifyDiscordSignature(publicKey: string, signature: string, timestamp: string, body: string): boolean {
-    try {
-      const message = new TextEncoder().encode(timestamp + body);
-      const sig = Buffer.from(signature, 'hex');
-      const key = Buffer.from(publicKey, 'hex');
-      return sign.detached.verify(message, sig, key);
-    } catch (err) {
-      console.error('署名検証エラー:', err);
-      return false;
-    }
-  }
-
-  // Discord署名検証 - 一時的に無効化してテスト
-  console.log('🔧 テスト用に署名検証をスキップ');
-  // if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, rawBody)) {
-  //   console.warn('❌ 署名検証失敗');
-  //   return res.status(401).json({ error: 'Invalid request signature' });
-  // }
-
-  let interaction;
-  try {
-    interaction = JSON.parse(rawBody);
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON' });
-  }
+  console.log('📨 リクエストボディ:', req.body);
+  
+  const interaction = req.body;
 
   // ✅ PING応答（Discordによる接続テスト）
   if (interaction.type === InteractionType.Ping) {
+    console.log('🏓 PING応答');
     return res.json({ type: InteractionResponseType.Pong });
   }
 
   // Application Command interaction
   if (interaction.type === InteractionType.ApplicationCommand) {
     if (interaction.data.name === 'invoice') {
+      console.log('📋 Invoice コマンド実行');
       // シンプルな単一モーダルを表示
       return res.json({
         type: InteractionResponseType.Modal,
@@ -146,113 +95,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Modal Submit interaction
-  if (interaction.type === InteractionType.ModalSubmit) {
-    if (interaction.data.custom_id === 'invoice-modal-simple') {
-      // シンプルモーダルの処理
-      const basicInfo = interaction.data.components[0].components[0].value.split(',');
-      const amountInfo = interaction.data.components[3].components[0].value.split(',');
-      
-      // 入力形式チェック
-      if (basicInfo.length < 5) {
-        return res.json({
-          type: InteractionResponseType.ChannelMessageWithSource,
-          data: {
-            content: '❌ 基本情報の形式が正しくありません。\n**正しい形式**: 日付,番号,顧客名,住所,締切日\n**例**: 7/6,INV-001,株式会社サンプル,東京都渋谷区,7/31',
-            flags: 64
-          }
-        });
-      }
-      
-      if (amountInfo.length < 2) {
-        return res.json({
-          type: InteractionResponseType.ChannelMessageWithSource,
-          data: {
-            content: '❌ 数量・単価の形式が正しくありません。\n**正しい形式**: 数量,単価\n**例**: 1,50000',
-            flags: 64
-          }
-        });
-      }
-
-      const data = {
-        請求日: basicInfo[0].trim(),
-        請求書番号: basicInfo[1].trim(),
-        顧客名: basicInfo[2].trim(),
-        住所担当者名: basicInfo[3].trim(),
-        入金締切日: basicInfo[4].trim(),
-        件名: interaction.data.components[1].components[0].value,
-        摘要: interaction.data.components[2].components[0].value,
-        数量: amountInfo[0].trim(),
-        単価: amountInfo[1].trim(),
-        備考: interaction.data.components[4].components[0].value || '',
-        登録日時: new Date().toISOString(),
-      };
-
-      // 直接GASに送信（同期処理）
-      try {
-        console.log('📤 GASに送信中:', process.env.GAS_WEBHOOK_URL);
-        console.log('📄 送信データ:', data);
-
-        const gasResponse = await fetch(process.env.GAS_WEBHOOK_URL!, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-
-        console.log('📡 GASレスポンス status:', gasResponse.status);
-
-        if (gasResponse.ok) {
-          // 成功メッセージを表示
-          return res.json({
-            type: InteractionResponseType.ChannelMessageWithSource,
-            data: {
-              embeds: [{
-                title: '✅ 請求書情報登録完了',
-                description: 'すべての情報が正常に登録されました。',
-                fields: [
-                  { name: '請求書番号', value: data.請求書番号, inline: true },
-                  { name: '顧客名', value: data.顧客名, inline: true },
-                  { name: '件名', value: data.件名, inline: true },
-                  { name: '数量', value: data.数量, inline: true },
-                  { name: '単価', value: data.単価, inline: true },
-                  { name: '請求日', value: data.請求日, inline: true }
-                ],
-                color: 0x00ff00
-              }],
-              flags: 64
-            }
-          });
-        } else {
-          console.error('❌ GAS転送失敗:', gasResponse.status);
-          return res.json({
-            type: InteractionResponseType.ChannelMessageWithSource,
-            data: {
-              embeds: [{
-                title: '❌ 送信エラー',
-                description: 'データの送信に失敗しました。もう一度お試しください。',
-                color: 0xff0000
-              }],
-              flags: 64
-            }
-          });
-        }
-      } catch (err) {
-        console.error('❌ 送信エラー詳細:', err);
-        return res.json({
-          type: InteractionResponseType.ChannelMessageWithSource,
-          data: {
-            embeds: [{
-              title: '❌ 送信エラー',
-              description: 'データの送信に失敗しました。もう一度お試しください。',
-              color: 0xff0000
-            }],
-            flags: 64
-          }
-        });
-      }
-    }
-  }
-
-  console.log('未処理のinteraction:', interaction);
-  return res.status(400).json({ error: 'Unknown interaction type' });
+  console.log('❓ 未処理のinteraction:', interaction);
+  return res.status(200).json({ message: 'OK' });
 }
