@@ -1,4 +1,4 @@
-import { verifyKey } from '@discord-interactions/verify';
+const { verifyKey } = require('@discord-interactions/verify');
 import {
   InteractionType,
   InteractionResponseType,
