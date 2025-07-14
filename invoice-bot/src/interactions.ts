@@ -14,9 +14,6 @@ export const config = {
   }
 };
 
-// temporary data storage (in production, use Redis or database)
-const tempStorage = new Map();
-
 // Discord signature verification
 function verifyDiscordSignature(publicKey: string, signature: string, timestamp: string, body: string): boolean {
   try {
@@ -60,7 +57,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
   console.log('署名検証:', { signature, timestamp, bodyLength: body.length, publicKey: publicKey?.substring(0, 10) + '...' });
-  console.log('テストモード: 署名検証をスキップ');
+
+  // ✅ 実際に署名検証を行う（ここがDiscord登録時に必須）
+  if (!signature || !timestamp || !verifyDiscordSignature(publicKey, signature, timestamp, body)) {
+    console.warn('❌ 署名検証失敗');
+    return res.status(401).json({ error: 'Invalid request signature' });
+  }
 
   let interaction;
   try {
@@ -143,8 +145,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       });
     }
-
-    // invoice2コマンドは削除済み
   }
 
   // Modal Submit interaction
@@ -252,10 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
     }
-
   }
-
-  // Button interaction (不要になったため削除)
 
   console.log('未処理のinteraction:', interaction);
   return res.status(400).json({ error: 'Unknown interaction type' });
