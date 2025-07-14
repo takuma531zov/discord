@@ -6,15 +6,39 @@ import {
   TextInputStyle
 } from 'discord-api-types/v10';
 
+// Vercel用の設定 - raw body を取得するためにbodyParserを無効化
+export const config = {
+  api: {
+    bodyParser: false
+  }
+};
+
+// Raw bodyを読み込むヘルパー関数
+async function getRawBody(req: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk: any) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      resolve(body);
+    });
+    req.on('error', (error: any) => {
+      reject(error);
+    });
+  });
+}
+
 export default async function handler(req: any, res: any) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Raw bodyを取得
+  const rawBody = await getRawBody(req);
   const signature = req.headers['x-signature-ed25519'];
   const timestamp = req.headers['x-signature-timestamp'];
-  const rawBody = JSON.stringify(req.body);
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
   console.log('署名検証:', { signature, timestamp, bodyLength: rawBody.length, publicKey: publicKey?.substring(0, 10) + '...' });
@@ -38,7 +62,12 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: 'Invalid request signature' });
   }
 
-  const interaction = req.body;
+  let interaction;
+  try {
+    interaction = JSON.parse(rawBody);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
 
   // ✅ PING応答（Discordによる接続テスト）
   if (interaction.type === InteractionType.Ping) {
