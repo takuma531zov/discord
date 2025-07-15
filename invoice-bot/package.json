@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
     "webhook": "ts-node src/webhook.ts",
     "interactions": "ts-node src/interactions.ts",
     "register": "ts-node src/register-commands.ts",
