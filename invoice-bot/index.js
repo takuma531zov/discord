@@ -1,54 +1,25 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifyKey } from 'discord-interactions';
-import {
-  InteractionType,
-  InteractionResponseType,
-  ComponentType,
-  TextInputStyle
-} from 'discord-api-types/v10';
+const express = require('express');
+const { verifyKey } = require('discord-interactions');
+const { InteractionType, InteractionResponseType, ComponentType, TextInputStyle } = require('discord-api-types/v10');
+require('dotenv').config();
 
-// Vercel用の設定 - raw body を取得するためにbodyParserを無効化
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Raw bodyを読み込むヘルパー関数
-async function getRawBody(req: VercelRequest): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk: any) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      resolve(body);
-    });
-    req.on('error', (error: any) => {
-      reject(error);
-    });
-  });
-}
+// Raw body middleware for Discord signature verification
+app.use('/webhook', express.raw({ type: 'application/json' }));
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-signature-ed25519'];
+  const timestamp = req.headers['x-signature-timestamp'];
+  const body = req.body.toString();
+  const publicKey = process.env.DISCORD_PUBLIC_KEY;
 
-  // Raw bodyを取得
-  const body = await getRawBody(req);
-
-  const signature = req.headers['x-signature-ed25519'] as string;
-  const timestamp = req.headers['x-signature-timestamp'] as string;
-  const publicKey = process.env.DISCORD_PUBLIC_KEY!;
-
-  // Discord公式のverifyKeyを使用
+  // Discord signature verification
   try {
     const isValidRequest = verifyKey(body, signature, timestamp, publicKey);
     
     if (!isValidRequest) {
-      console.warn('❌ 署名検証失敗');
       return res.status(401).json({ error: 'Invalid request signature' });
     }
   } catch (error) {
@@ -56,14 +27,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid request signature' });
   }
 
-  let interaction;
-  try {
-    interaction = JSON.parse(body);
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON' });
-  }
+  const interaction = JSON.parse(body);
 
-  // ✅ PING応答（Discordによる接続テスト）
+  // PING応答
   if (interaction.type === InteractionType.Ping) {
     return res.json({ type: InteractionResponseType.Pong });
   }
@@ -71,7 +37,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Application Command interaction
   if (interaction.type === InteractionType.ApplicationCommand) {
     if (interaction.data.name === 'invoice') {
-      // シンプルな単一モーダルを表示
       return res.json({
         type: InteractionResponseType.Modal,
         data: {
@@ -142,11 +107,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Modal Submit interaction
   if (interaction.type === InteractionType.ModalSubmit) {
     if (interaction.data.custom_id === 'invoice-modal-simple') {
-      // シンプルモーダルの処理
       const basicInfo = interaction.data.components[0].components[0].value.split(',');
       const amountInfo = interaction.data.components[3].components[0].value.split(',');
       
-      // 入力形式チェック
       if (basicInfo.length < 5) {
         return res.json({
           type: InteractionResponseType.ChannelMessageWithSource,
@@ -181,21 +144,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         登録日時: new Date().toISOString(),
       };
 
-      // 直接GASに送信（同期処理）
-      try {
-        console.log('📤 GASに送信中:', process.env.GAS_WEBHOOK_URL);
-        console.log('📄 送信データ:', data);
-
-        const gasResponse = await fetch(process.env.GAS_WEBHOOK_URL!, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-
-        console.log('📡 GASレスポンス status:', gasResponse.status);
-
-        if (gasResponse.ok) {
-          // 成功メッセージを表示
+      // GASに送信
+      fetch(process.env.GAS_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      .then(response => {
+        if (response.ok) {
           return res.json({
             type: InteractionResponseType.ChannelMessageWithSource,
             data: {
@@ -216,7 +172,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           });
         } else {
-          console.error('❌ GAS転送失敗:', gasResponse.status);
           return res.json({
             type: InteractionResponseType.ChannelMessageWithSource,
             data: {
@@ -229,8 +184,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           });
         }
-      } catch (err) {
-        console.error('❌ 送信エラー詳細:', err);
+      })
+      .catch(err => {
+        console.error('❌ 送信エラー:', err);
         return res.json({
           type: InteractionResponseType.ChannelMessageWithSource,
           data: {
@@ -242,10 +198,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             flags: 64
           }
         });
-      }
+      });
     }
   }
 
-  console.log('未処理のinteraction:', interaction);
   return res.status(400).json({ error: 'Unknown interaction type' });
-}
+});
+
+app.get('/', (req, res) => {
+  res.json({ status: 'Discord Bot is running!' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

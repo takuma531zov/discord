@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "node index.js",
     "webhook": "ts-node src/webhook.ts",
     "interactions": "ts-node src/interactions.ts",
     "register": "ts-node src/register-commands.ts",
@@ -21,6 +21,7 @@
     "@discord-interactions/verify": "^0.3.16",
     "@vercel/node": "^3.0.0",
     "discord-api-types": "^0.38.15",
+    "discord-interactions": "^4.3.0",
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
