@@ -1,4 +1,5 @@
 const express = require('express');
+const fetch = require('node-fetch');
 const { verifyKey } = require('discord-interactions');
 const { InteractionType, InteractionResponseType, ComponentType, TextInputStyle } = require('discord-api-types/v10');
 
@@ -13,17 +14,30 @@ const GAS_WEBHOOK_URL = process.env.GAS_WEBHOOK_URL || 'https://script.google.co
 app.use('/webhook', express.raw({ type: 'application/json' }));
 
 app.post('/webhook', async (req, res) => {
+  console.log('Webhook received:', {
+    headers: req.headers,
+    bodyLength: req.body?.length
+  });
+
   const signature = req.headers['x-signature-ed25519'];
   const timestamp = req.headers['x-signature-timestamp'];
   const body = req.body.toString();
+
+  console.log('Signature verification:', {
+    hasSignature: !!signature,
+    hasTimestamp: !!timestamp,
+    bodyLength: body.length
+  });
 
   // Discord signature verification
   try {
     const isValidRequest = verifyKey(body, signature, timestamp, DISCORD_PUBLIC_KEY);
     
     if (!isValidRequest) {
+      console.log('❌ Signature verification failed');
       return res.status(401).json({ error: 'Invalid request signature' });
     }
+    console.log('✅ Signature verified');
   } catch (error) {
     console.error('署名検証エラー:', error);
     return res.status(401).json({ error: 'Invalid request signature' });
