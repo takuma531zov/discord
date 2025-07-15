@@ -15,14 +15,14 @@ export const config = {
 };
 
 // Raw bodyを読み込むヘルパー関数
-async function getRawBody(req: VercelRequest): Promise<string> {
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk: any) => {
-      body += chunk.toString();
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
     });
     req.on('end', () => {
-      resolve(body);
+      resolve(Buffer.concat(chunks));
     });
     req.on('error', (error: any) => {
       reject(error);
@@ -37,15 +37,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Raw bodyを取得
-  const body = await getRawBody(req);
+  const bodyBuffer = await getRawBody(req);
+  const body = bodyBuffer.toString('utf8');
 
   const signature = req.headers['x-signature-ed25519'] as string;
   const timestamp = req.headers['x-signature-timestamp'] as string;
   const publicKey = process.env.DISCORD_PUBLIC_KEY!;
 
+  console.log('Request details:', {
+    method: req.method,
+    hasSignature: !!signature,
+    hasTimestamp: !!timestamp,
+    hasPublicKey: !!publicKey,
+    bodyLength: body.length
+  });
+
   // Discord公式のverifyKeyを使用
   try {
     const isValidRequest = verifyKey(body, signature, timestamp, publicKey);
+    console.log('Signature verification result:', isValidRequest);
     
     if (!isValidRequest) {
       console.warn('❌ 署名検証失敗');
