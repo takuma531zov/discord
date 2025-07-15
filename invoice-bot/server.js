@@ -11,7 +11,7 @@ const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || 'd9eecfefdeb293d1c6
 const GAS_WEBHOOK_URL = process.env.GAS_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbxvW-Zp7Pe6XCJe5WxkFZ6axDTj3IP5NzwzTR4UladHNZkHjcip8N2oVDZReyZ7bj-gGQ/exec';
 
 // Raw body middleware for Discord signature verification
-app.use('/webhook', express.raw({ type: 'application/json' }));
+app.use(express.raw({ type: 'application/json' }));
 
 app.post('/webhook', async (req, res) => {
   console.log('Webhook received:', {
