@@ -333,3 +333,28 @@ ISC License
 
 **開発者:** takuma531zov
 **作成日:** 2025-07-12
+  環境分岐
+
+  - 開発環境（Vercel）: VERCEL_ENVが存在する場合
+  - 本番環境（Cloudflare）: VERCEL_ENVが存在しない場合
+
+  開発環境の動作
+
+  1. 同期処理: GAS送信を2秒タイムアウトで実行
+  2. 一律成功メッセージ: 成功/失敗に関わらず成功メッセージを返す
+  3. メッセージ削除スキップ: Vercelの制約によりスキップ
+  4. トークに残す: flags: 64なしで通常メッセージとして残す
+
+  本番環境の動作
+
+  1. Follow-up API: 処理中メッセージ → 結果通知の2段階
+  2. 5秒タイムアウト: 十分な処理時間
+  3. 正確な結果通知: 実際の成功/失敗を報告
+  4. メッセージ削除: 途中メッセージを削除してから最終メッセージ送信
+
+  主要関数
+
+  - sendToGAS(): 環境に応じたタイムアウト設定でGAS送信
+  - deleteIntermediateMessages(): メッセージ削除（本番環境のみ）
+  - sendFollowupMessage(): Follow-up API（ephemeral設定可能）
+  - handleDataSubmission(): メイン処理ロジック
