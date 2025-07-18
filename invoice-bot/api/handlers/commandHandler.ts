@@ -21,7 +21,7 @@ export function handleInvoiceCommand(res: VercelResponse) {
             type: ComponentType.TextInput,
             custom_id: 'invoice_date',
             label: '請求日',
-            placeholder: '例: 2025-07-16',
+            placeholder: '例: 7/6',
             style: TextInputStyle.Short,
             required: true
           }]
@@ -32,7 +32,7 @@ export function handleInvoiceCommand(res: VercelResponse) {
             type: ComponentType.TextInput,
             custom_id: 'invoice_number',
             label: '請求書番号',
-            placeholder: '例: INV-001',
+            placeholder: '例: 456789-001',
             style: TextInputStyle.Short,
             required: true,
             max_length: 100

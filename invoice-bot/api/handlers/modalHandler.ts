@@ -19,16 +19,16 @@ export function handleFirstModalSubmit(interaction: any, res: VercelResponse) {
       顧客名: interaction.data.components[2].components[0].value,
       件名: interaction.data.components[3].components[0].value
     };
-    
+
     console.log('📝 First modal data:', firstModalData);
-    
+
     // データをcustom_idにエンコード
     const encodedCustomId = encodeToCustomId(firstModalData);
     console.log('🔐 Encoded custom_id:', encodedCustomId);
-    
+
     const buttonCustomId = `continue_${encodedCustomId.replace('step2_', '')}`;
     console.log('🔘 Button custom_id length:', buttonCustomId.length);
-    
+
     // Discord custom_id制限チェック (100文字以内)
     if (buttonCustomId.length > 100) {
       console.error('❌ Custom ID too long:', buttonCustomId.length);
@@ -40,7 +40,7 @@ export function handleFirstModalSubmit(interaction: any, res: VercelResponse) {
         }
       });
     }
-    
+
     const response = {
       type: 4,
       data: {
@@ -61,7 +61,7 @@ export function handleFirstModalSubmit(interaction: any, res: VercelResponse) {
         flags: 64
       }
     };
-    
+
     console.log('📤 Sending first modal response');
     return res.json(response);
   } catch (error) {
@@ -84,9 +84,9 @@ export function handleSecondModalSubmit(interaction: any, res: VercelResponse) {
     // custom_idからデータをデコード
     const customId = interaction.data.custom_id;
     console.log('🔍 Decoding custom_id:', customId);
-    
+
     const firstModalData = decodeFromCustomId(customId);
-    
+
     if (!firstModalData) {
       console.log('❌ Failed to decode custom_id:', customId);
       return res.json({
@@ -97,9 +97,9 @@ export function handleSecondModalSubmit(interaction: any, res: VercelResponse) {
         }
       });
     }
-    
+
     console.log('✅ Decoded first modal data:', firstModalData);
-    
+
     const secondModalData: SecondModalData = {
       摘要: interaction.data.components[0].components[0].value,
       数量: interaction.data.components[1].components[0].value,
@@ -129,13 +129,13 @@ export function handleContinueButton(interaction: any, res: VercelResponse) {
     // custom_idからエンコードされたデータを取得
     const encodedData = interaction.data.custom_id.replace('continue_', '');
     const fullCustomId = `step2_${encodedData}`;
-    
+
     console.log('🔘 Continue button - encoded data:', encodedData);
     console.log('🔘 Full custom_id for modal:', fullCustomId);
-    
+
     // デコードして検証
     const firstModalData = decodeFromCustomId(fullCustomId);
-    
+
     if (!firstModalData) {
       console.log('❌ Failed to decode button data:', encodedData);
       return res.json({
@@ -146,9 +146,9 @@ export function handleContinueButton(interaction: any, res: VercelResponse) {
         }
       });
     }
-    
+
     console.log('✅ Button data verified:', firstModalData);
-    
+
     // 第2モーダルを表示
     return res.json({
       type: 9,
@@ -195,7 +195,7 @@ export function handleContinueButton(interaction: any, res: VercelResponse) {
               type: 4,
               custom_id: 'remarks',
               label: '備考',
-              placeholder: '任意: 支払い条件等',
+              placeholder: '任意',
               style: 2,
               required: false
             }]
@@ -222,7 +222,7 @@ export function routeModalSubmission(interaction: any, res: VercelResponse) {
   try {
     const customId = interaction.data.custom_id;
     console.log('🔀 Modal routing - custom_id:', customId);
-    
+
     if (customId === 'invoice_step1') {
       console.log('📝 Processing first modal submission');
       return handleFirstModalSubmit(interaction, res);

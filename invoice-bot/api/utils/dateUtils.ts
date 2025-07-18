@@ -117,17 +117,19 @@ function getLastDayOfMonth(year: number, month: number): number {
  * 請求日から入金締切日（翌月最終営業日）を計算
  */
 export async function calculatePaymentDueDate(invoiceDateStr: string): Promise<string> {
-  const invoiceDate = new Date(invoiceDateStr);
-  const year = invoiceDate.getFullYear();
-  const month = invoiceDate.getMonth() + 1; // 翌月
+  // 請求日をパース（"4/30" → "2025-04-30"）
+  const [month, day] = invoiceDateStr.split('/');
+  const currentYear = new Date().getFullYear();
+  const invoiceDate = new Date(currentYear, parseInt(month) - 1, parseInt(day));
   
   // 翌月の年・月を計算
-  const nextMonth = month > 12 ? 1 : month;
-  const nextYear = month > 12 ? year + 1 : year;
+  const nextMonth = invoiceDate.getMonth() + 2; // +2 = 翌月（0ベースなので）
+  const nextYear = nextMonth > 12 ? invoiceDate.getFullYear() + 1 : invoiceDate.getFullYear();
+  const adjustedMonth = nextMonth > 12 ? 1 : nextMonth;
   
   // 翌月の最終日を取得
-  const lastDay = getLastDayOfMonth(nextYear, nextMonth);
-  let lastDayStr = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+  const lastDay = getLastDayOfMonth(nextYear, adjustedMonth);
+  let lastDayStr = `${nextYear}-${adjustedMonth.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
   
   // 最終日が営業日でない場合は前の営業日を取得
   if (!(await isBusinessDay(lastDayStr))) {

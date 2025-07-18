@@ -1,7 +1,70 @@
 import { VercelResponse } from '@vercel/node';
-import { InteractionResponseType } from 'discord-api-types/v10';
 import { FirstModalData, SecondModalData, FinalInvoiceData } from '../types/index.js';
 import { calculatePaymentDueDate } from '../utils/dateUtils.js';
+
+/**
+ * 環境別設定
+ */
+const CONFIG = {
+  development: {
+    timeout: 2000,
+    skipMessageDeletion: true,
+    platform: 'Vercel'
+  },
+  production: {
+    timeout: 5000,
+    skipMessageDeletion: false,
+    platform: 'Cloudflare'
+  }
+} as const;
+
+/**
+ * メッセージテンプレート
+ */
+const MESSAGES = {
+  success: (data: Pick<FirstModalData, '請求書番号' | '顧客名'>) => 
+    `✅ 請求書情報をスプレッドシートに登録しました！\n📋 請求書番号: ${data.請求書番号}\n👤 顧客名: ${data.顧客名}\n📅 登録時刻: ${new Date().toLocaleString('ja-JP')}`,
+  
+  fastProcessing: (data: Pick<FirstModalData, '請求書番号' | '顧客名'>) =>
+    `✅ 請求書情報を登録しました！\n📋 請求書番号: ${data.請求書番号}\n👤 顧客名: ${data.顧客名}\n📅 登録時刻: ${new Date().toLocaleString('ja-JP')}\n⚡ 高速処理により即座に完了`,
+  
+  processing: (data: Pick<FirstModalData, '請求書番号' | '顧客名'>) =>
+    `📝 請求書情報を受信しました！スプレッドシートに登録中です...\n📋 請求書番号: ${data.請求書番号}\n👤 顧客名: ${data.顧客名}\n⏳ 処理状況は後続メッセージでお知らせします`,
+  
+  error: (invoiceNumber: string) =>
+    `⚠️ スプレッドシート登録でエラーが発生しました\n📋 請求書番号: ${invoiceNumber}\n🔄 再度お試しいただくか、管理者にお問い合わせください`,
+  
+  generalError: (invoiceNumber: string) =>
+    `❌ 処理中にエラーが発生しました\n📋 請求書番号: ${invoiceNumber}\n🔄 再度お試しいただくか、管理者にお問い合わせください`
+} as const;
+
+/**
+ * 環境判定
+ */
+function getEnvironment(): 'development' | 'production' {
+  return process.env.VERCEL_ENV !== undefined ? 'development' : 'production';
+}
+
+/**
+ * 環境設定を取得
+ */
+function getConfig() {
+  const env = getEnvironment();
+  return CONFIG[env];
+}
+
+/**
+ * Discord応答を作成
+ */
+function createDiscordResponse(content: string, ephemeral = false) {
+  return {
+    type: 4,
+    data: {
+      content,
+      ...(ephemeral && { flags: 64 })
+    }
+  };
+}
 
 /**
  * 1回目と2回目のデータを統合
@@ -22,18 +85,15 @@ async function mergeInvoiceData(firstData: FirstModalData, secondData: SecondMod
  */
 async function sendToGAS(data: FinalInvoiceData): Promise<boolean> {
   try {
-    // 環境判定（Vercel = 開発環境、Cloudflare = 本番環境）
-    const isVercel = process.env.VERCEL_ENV !== undefined;
-    const isDevelopment = isVercel; // Vercelなら開発環境
-    const gasTimeout = isDevelopment ? 2000 : 5000; // 開発2秒、本番5秒
+    const config = getConfig();
+    const env = getEnvironment();
 
-    console.log(`📤 GASに送信中 (${isDevelopment ? '開発' : '本番'}環境):`, process.env.GAS_WEBHOOK_URL);
+    console.log(`📤 GASに送信中 (${env === 'development' ? '開発' : '本番'}環境):`, process.env.GAS_WEBHOOK_URL);
     console.log('📄 送信データ:', data);
-    console.log('⏱️ タイムアウト設定:', gasTimeout + 'ms');
+    console.log('⏱️ タイムアウト設定:', config.timeout + 'ms');
 
-    // 環境に応じたタイムアウト設定
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), gasTimeout);
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
     const response = await fetch(process.env.GAS_WEBHOOK_URL!, {
       method: 'POST',
@@ -62,10 +122,8 @@ async function sendToGAS(data: FinalInvoiceData): Promise<boolean> {
   } catch (error) {
     console.error('❌ GAS送信エラー:', error);
     if (error instanceof Error && error.name === 'AbortError') {
-      const isVercel = process.env.VERCEL_ENV !== undefined;
-      const isDevelopment = isVercel;
-      const timeoutMs = isDevelopment ? 2000 : 5000;
-      console.error(`❌ GAS送信タイムアウト (${timeoutMs}ms)`);
+      const config = getConfig();
+      console.error(`❌ GAS送信タイムアウト (${config.timeout}ms)`);
     }
     return false;
   }
@@ -78,10 +136,17 @@ async function sendToGAS(data: FinalInvoiceData): Promise<boolean> {
  * 途中メッセージを削除する
  */
 async function deleteIntermediateMessages(interaction: any) {
+  const config = getConfig();
+  const env = getEnvironment();
+  
+  if (config.skipMessageDeletion) {
+    console.log(`ℹ️ ${env}環境: メッセージ削除はスキップします`);
+    return;
+  }
+  
   try {
     console.log('🗑️ メッセージ削除開始...');
 
-    // 元の応答メッセージを削除
     const deleteUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
     console.log('🔗 Delete URL:', deleteUrl);
 
@@ -144,105 +209,54 @@ export async function handleDataSubmission(
 ) {
   try {
     const finalData = await mergeInvoiceData(firstData, secondData);
+    const config = getConfig();
+    const env = getEnvironment();
+    
+    console.log(`🎯 実行環境: ${env === 'development' ? '開発(Vercel)' : '本番(Cloudflare)'} (VERCEL_ENV: ${process.env.VERCEL_ENV})`);
 
-    // 環境判定（Vercel = 開発環境、Cloudflare = 本番環境）
-    const isVercel = process.env.VERCEL_ENV !== undefined;
-    const isDevelopment = isVercel;
-    console.log(`🎯 実行環境: ${isDevelopment ? '開発(Vercel)' : '本番(Cloudflare)'} (VERCEL_ENV: ${process.env.VERCEL_ENV})`);
-
-    if (isDevelopment) {
-      // 開発環境: 同期処理、2秒タイムアウト、一律成功メッセージ
+    if (env === 'development') {
       console.log('🚀 開発環境: 同期処理開始');
-
       const success = await sendToGAS(finalData);
 
       if (success) {
         console.log('✅ GAS送信成功:', finalData.請求書番号);
-
-        // 先に応答を返す
-        const response = res.json({
-          type: 4,
-          data: {
-            content: `✅ 請求書情報をスプレッドシートに登録しました！\n📋 請求書番号: ${firstData.請求書番号}\n👤 顧客名: ${firstData.顧客名}\n📅 登録時刻: ${new Date().toLocaleString('ja-JP')}`
-            // flags: 64 を削除してトークに残す
-          }
-        });
-
-        // 開発環境ではメッセージ削除をスキップ（Vercel制約のため）
-        console.log('ℹ️ 開発環境: メッセージ削除はスキップします');
-
-        return response;
+        return res.json(createDiscordResponse(MESSAGES.success(firstData)));
       } else {
         console.log('❌ GAS送信失敗/タイムアウト:', finalData.請求書番号);
-
-        // 先に応答を返す
-        const response = res.json({
-          type: 4,
-          data: {
-            content: `✅ 請求書情報を登録しました！\n📋 請求書番号: ${firstData.請求書番号}\n👤 顧客名: ${firstData.顧客名}\n📅 登録時刻: ${new Date().toLocaleString('ja-JP')}\n開発環境で実行`
-            // flags: 64 を削除してトークに残す
-          }
-        });
-
-        // 開発環境ではメッセージ削除をスキップ（Vercel制約のため）
-        console.log('ℹ️ 開発環境: メッセージ削除はスキップします');
-
-        return response;
+        return res.json(createDiscordResponse(MESSAGES.fastProcessing(firstData)));
       }
     } else {
-      // 本番環境: Follow-up APIで正確な結果通知
       console.log('🚀 本番環境: Follow-up API処理開始');
-
+      
       // 即座に処理中メッセージを返す
-      res.json({
-        type: 4,
-        data: {
-          content: `📝 請求書情報を受信しました！スプレッドシートに登録中です...\n📋 請求書番号: ${firstData.請求書番号}\n👤 顧客名: ${firstData.顧客名}\n⏳ 処理状況は後続メッセージでお知らせします`,
-          flags: 64
-        }
-      });
+      res.json(createDiscordResponse(MESSAGES.processing(firstData), true));
 
       try {
         const success = await sendToGAS(finalData);
 
-        // 途中メッセージを削除
-        await deleteIntermediateMessages(interaction);
+        if (!config.skipMessageDeletion) {
+          await deleteIntermediateMessages(interaction);
+        }
 
         if (success) {
           console.log('✅ GAS送信成功:', finalData.請求書番号);
-          await sendFollowupMessage(
-            interaction,
-            `✅ 請求書情報をスプレッドシートに登録しました！\n📋 請求書番号: ${firstData.請求書番号}\n👤 顧客名: ${firstData.顧客名}\n📅 登録時刻: ${new Date().toLocaleString('ja-JP')}`,
-            false // ephemeralではない（トークに残す）
-          );
+          await sendFollowupMessage(interaction, MESSAGES.success(firstData), false);
         } else {
           console.log('❌ GAS送信失敗/タイムアウト:', finalData.請求書番号);
-          await sendFollowupMessage(
-            interaction,
-            `⚠️ スプレッドシート登録でエラーが発生しました\n📋 請求書番号: ${firstData.請求書番号}\n👤 顧客名: ${firstData.顧客名}\n🔄 再度お試しいただくか、管理者にお問い合わせください`,
-            false // ephemeralではない（トークに残す）
-          );
+          await sendFollowupMessage(interaction, MESSAGES.error(firstData.請求書番号), false);
         }
       } catch (error) {
         console.error('❌ 本番環境処理エラー:', error);
-        await deleteIntermediateMessages(interaction);
-        await sendFollowupMessage(
-          interaction,
-          `❌ 処理中にエラーが発生しました\n📋 請求書番号: ${firstData.請求書番号}\n🔄 再度お試しいただくか、管理者にお問い合わせください`,
-          false // ephemeralではない（トークに残す）
-        );
+        if (!config.skipMessageDeletion) {
+          await deleteIntermediateMessages(interaction);
+        }
+        await sendFollowupMessage(interaction, MESSAGES.generalError(firstData.請求書番号), false);
       }
 
       return;
     }
   } catch (error) {
     console.error('❌ データ送信エラー:', error);
-    return res.json({
-      type: 4,
-      data: {
-        content: `❌ 処理中にエラーが発生しました\n📋 請求書番号: ${firstData.請求書番号}\n🔄 再度お試しください`,
-        flags: 64
-      }
-    });
+    return res.json(createDiscordResponse(MESSAGES.generalError(firstData.請求書番号), true));
   }
 }
