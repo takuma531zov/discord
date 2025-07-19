@@ -72,13 +72,13 @@ VERCEL_ENV=production  # Vercelが自動設定
 
 **Vercel**
 ```bash
-npm i -g vercel
+pnpm i -g vercel
 vercel --prod
 ```
 
 **Cloudflare Pages:**
 ```bash
-npm run build
+pnpm run build
 # Cloudflare Pagesにデプロイ
 ```
 
@@ -100,13 +100,13 @@ npm run build
 
 ```bash
 # 依存関係インストール
-npm install
+pnpm install
 
 # TypeScript型チェック
-npx tsc --noEmit
+pnpm exec tsc --noEmit
 
 # ローカル開発
-npm run dev
+pnpm run dev
 ```
 
 ## 📁 プロジェクト構成
