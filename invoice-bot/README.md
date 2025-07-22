@@ -165,6 +165,7 @@ invoice-bot/
 - [Discord Developer Portal](https://discord.com/developers/applications)
 - [Google Apps Script](https://script.google.com/)
 - [祝日API](https://holidays-jp.github.io/)
+- [開発環境スプレッドシート]　https://docs.google.com/spreadsheets/d/1kAKuzxN-yLO0c_ZQ9jHeJiNHgi18QKZuTncHW-lsRMU/edit?gid=1441481549#gid=1441481549
 
 ---
 
